@@ -16,17 +16,18 @@ readSecrets()
   .then(getDoc)
   .then(createDoc)
   .then(callAppsScript)
-  .then(downloadLetter);
-//TODO Add error handler
+  .then(downloadLetter)
+  .catch( error => {
+    console.error( 'onRejected function called: ', error )})
 
 /**
- * Retriev client_secret.json file for use with OAuth client.
+ * Retrieve client_secret.json file for use with OAuth client.
  */
 function readSecrets(){
   return new Promise(function(resolve, reject){
     fs.readFile('client_secret.json', function (err, content) {
       if (err) {
-        reject(Error("It broke readSecrets()"));
+        reject(Error("Could not read client_secret.json file."));
       }
       else {
         resolve(JSON.parse(content));
@@ -36,8 +37,7 @@ function readSecrets(){
 }
 
 /**
- * Create an OAuth2 client with the given credentials, and then execute the
- * given callback function.
+ * Create an OAuth2 client with the given credentials.
  *
  * @param {Object} credentials The authorization client credentials.
  */
@@ -52,7 +52,8 @@ function authorize(credentials) {
     // Check if we have previously stored a token.
     fs.readFile(TOKEN_PATH, function(err, token) {
       if (err) {
-        getNewToken(oauth2Client, callback);
+        //resolve(getNewToken(oauth2Client));
+        reject(Error("No token found."))
       } else {
         oauth2Client.credentials = JSON.parse(token);
         resolve(oauth2Client);
@@ -62,14 +63,11 @@ function authorize(credentials) {
 }
 
 /**
- * Get and store new token after prompting for user authorization, and then
- * execute the given callback with the authorized OAuth2 client.
+ * Get and store new token after prompting for user authorization.
  *
  * @param {google.auth.OAuth2} oauth2Client The OAuth2 client to get token for.
- * @param {getEventsCallback} callback The callback to call with the authorized
- *     client.
  */
-function getNewToken(oauth2Client, callback) {
+function getNewToken(oauth2Client) {
   var authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES
@@ -81,15 +79,26 @@ function getNewToken(oauth2Client, callback) {
   });
   rl.question('Enter the code from that page here: ', function(code) {
     rl.close();
-    oauth2Client.getToken(code, function(err, token) {
-      if (err) {
-        console.log('Error while trying to retrieve access token', err);
-        return;
-      }
-      oauth2Client.credentials = token;
-      storeToken(token);
-      callback(oauth2Client);
+    return new Promise(function(resolve, reject){
+      oauth2Client.getToken(code, function(err, token) {
+        if (err) {
+          //console.log('Error while trying to retrieve access token', err);
+          reject(Error("Error while trying to retrieve access token"));
+        }
+        oauth2Client.credentials = token;
+        storeToken(token);
+        resolve(oauth2Client);
+      });
     });
+    // oauth2Client.getToken(code, function(err, token) {
+    //   if (err) {
+    //     console.log('Error while trying to retrieve access token', err);
+    //     return;
+    //   }
+    //   oauth2Client.credentials = token;
+    //   storeToken(token);
+    //   return oauth2Client;
+    // });
   });
 }
 
@@ -121,18 +130,18 @@ function getDoc(auth) {
     service.files.list({
       auth: auth,
       pageSize: 1,
-      q: "name='Generic Cover Letter'",
+      q: "name='Generic Cover Letter'", //TODO: Make this dynamic.
       fields: 'files(id)'
     }, function(err, response) {
       if (err) {
-        reject(Error("It broke in getDoc()"));
+        reject(Error("Unable to located cover letter in Drive."));
       }
       else{
         var files = response.files;
         if (files.length == 0) {
-          console.log('No files found.');
+          reject(Error("Cover letter not in Drive."));
         } else {
-          resolve([auth, response.files[0].id]);
+          resolve([auth, files[0].id]);
         }
       }
     });
