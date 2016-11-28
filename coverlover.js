@@ -17,9 +17,13 @@ readSecrets()
   .then(createDoc)
   .then(callAppsScript)
   .then(downloadLetter);
+//TODO Add error handler
 
+/**
+ * Retriev client_secret.json file for use with OAuth client.
+ */
 function readSecrets(){
-  var promise = new Promise(function(resolve, reject){
+  return new Promise(function(resolve, reject){
     fs.readFile('client_secret.json', function (err, content) {
       if (err) {
         reject(Error("It broke readSecrets()"));
@@ -29,7 +33,6 @@ function readSecrets(){
       }
     });
   });
-  return promise;
 }
 
 /**
@@ -37,7 +40,6 @@ function readSecrets(){
  * given callback function.
  *
  * @param {Object} credentials The authorization client credentials.
- * @param {function} callback The callback to call with the authorized client.
  */
 function authorize(credentials) {
   var clientSecret = credentials.installed.client_secret;
@@ -46,7 +48,7 @@ function authorize(credentials) {
   var auth = new googleAuth();
   var oauth2Client = new auth.OAuth2(clientId, clientSecret, redirectUrl);
 
-  var promise = new Promise(function(resolve, reject){
+  return new Promise(function(resolve, reject){
     // Check if we have previously stored a token.
     fs.readFile(TOKEN_PATH, function(err, token) {
       if (err) {
@@ -57,7 +59,6 @@ function authorize(credentials) {
       }
     });
   });
-  return promise;
 }
 
 /**
@@ -109,9 +110,14 @@ function storeToken(token) {
   console.log('Token stored to ' + TOKEN_PATH);
 }
 
+/**
+ * Retrieve the document ID of the 'Generic Cover Letter' in Google Drive.
+ * TODO: Make this more dynamic.
+ * @param {Object} auth An authorized OAuth2 client.
+ */
 function getDoc(auth) {
   var service = google.drive('v3');
-  var promise = new Promise(function(resolve, reject){
+  return new Promise(function(resolve, reject){
     service.files.list({
       auth: auth,
       pageSize: 1,
@@ -119,7 +125,6 @@ function getDoc(auth) {
       fields: 'files(id)'
     }, function(err, response) {
       if (err) {
-        console.log("HERE2")
         reject(Error("It broke in getDoc()"));
       }
       else{
@@ -132,12 +137,17 @@ function getDoc(auth) {
       }
     });
   });
-  return promise;
 }
 
+/**
+ * Create a copy of the 'Generic Cover Letter' and return this
+ * new document's ID.
+ *
+ * @param {Object} auth An authorized OAuth2 client.
+ */
 function createDoc(args){
   var service = google.drive('v3');
-  var promise = new Promise(function(resolve, reject){
+  return new Promise(function(resolve, reject){
     service.files.copy({
       auth: args[0],
       fileId: args[1]
@@ -151,7 +161,6 @@ function createDoc(args){
       }
     });
   });
-  return promise;
 }
 
 /**
@@ -163,8 +172,7 @@ function callAppsScript(args) {
   var scriptId = process.env.GOOGLE_SCRIPT_ID;
   var script = google.script('v1');
 
-  var promise = new Promise(function(resolve, reject){
-    // Make the API request. The request object is included here as 'resource'.
+  return new Promise(function(resolve, reject){
     script.scripts.run({
       auth: args[0],
       resource: {
@@ -174,7 +182,7 @@ function callAppsScript(args) {
           companyName="TestCompany",
           companyPosition="TestPosition"
         ],
-        devMode: true
+        devMode: true //TODO: Set to false after deploying newest version of App Script
       },
       scriptId: scriptId
     }, function(err, resp) {
@@ -189,9 +197,9 @@ function callAppsScript(args) {
         // Extract the first (and only) set of error details. The values of this
         // object are the script's 'errorMessage' and 'errorType', and an array
         // of stack trace elements.
-        console.log(resp.error)
         var error = resp.error.details[0];
-        //console.log('Script error message: ' + error.errorMessage);
+        console.log('Script error message: ' + error.errorMessage);
+        
         if (error.scriptStackTraceElements) {
           console.log('Script error stacktrace:');
           // There may not be a stacktrace if the script didn't start executing.
@@ -200,15 +208,19 @@ function callAppsScript(args) {
             console.log('\t%s: %s', trace.function, trace.lineNumber);
           }
         }
-        eject(Error("It broke in callAppsScript()"));
+        reject(Error("It broke in callAppsScript()"));
       } else {
         resolve([args[0], args[1]])
       }
     });
   });
-  return promise;
 }
 
+/**
+ * Download the modified cover letter to local machine.
+ *
+ * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
+ */
 function downloadLetter(args){
   var dest = fs.createWriteStream('coverLetter.pdf'); //TODO: Dynamic PDF name. 
   var service = google.drive('v3');
