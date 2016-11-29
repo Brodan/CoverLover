@@ -1,15 +1,15 @@
-var fs = require('fs');
-var readline = require('readline');
-var google = require('googleapis');
-var googleAuth = require('google-auth-library');
+var fs = require('fs')
+var readline = require('readline')
+var google = require('googleapis')
+var googleAuth = require('google-auth-library')
 
 // If modifying these scopes, delete your previously saved credentials
 // at ~/.credentials/coverLover.json
 var SCOPES = ['https://www.googleapis.com/auth/documents',
-              'https://www.googleapis.com/auth/drive'];
+              'https://www.googleapis.com/auth/drive']
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
-    process.env.USERPROFILE) + '/.credentials/';
-var TOKEN_PATH = TOKEN_DIR + 'coverLover.json';
+    process.env.USERPROFILE) + '/.credentials/'
+var TOKEN_PATH = TOKEN_DIR + 'coverLover.json'
 
 readSecrets()
   .then(authorize)
@@ -17,89 +17,81 @@ readSecrets()
   .then(createDoc)
   .then(callAppsScript)
   .then(downloadLetter)
-  .catch( error => {
-    console.error( 'onRejected function called: ', error )})
+  .then(result => {
+    console.log(result)})
+  .catch(error => {
+    console.error('onRejected function called: ', error )})
 
 /**
  * Retrieve client_secret.json file for use with OAuth client.
  */
-function readSecrets(){
-  return new Promise(function(resolve, reject){
+function readSecrets() {
+  return new Promise(function(resolve, reject) {
     fs.readFile('client_secret.json', function (err, content) {
       if (err) {
-        reject(Error("Could not read client_secret.json file."));
+        reject(Error("Could not read client_secret.json file."))
       }
       else {
-        resolve(JSON.parse(content));
+        resolve(JSON.parse(content))
       }
-    });
-  });
+    })
+  })
 }
 
 /**
- * Create an OAuth2 client with the given credentials.
+ * Authorize an OAuth2 client with the given credentials.
  *
  * @param {Object} credentials The authorization client credentials.
  */
 function authorize(credentials) {
-  var clientSecret = credentials.installed.client_secret;
-  var clientId = credentials.installed.client_id;
-  var redirectUrl = credentials.installed.redirect_uris[0];
-  var auth = new googleAuth();
-  var oauth2Client = new auth.OAuth2(clientId, clientSecret, redirectUrl);
+  var clientSecret = credentials.installed.client_secret
+  var clientId = credentials.installed.client_id
+  var redirectUrl = credentials.installed.redirect_uris[0]
+  var auth = new googleAuth()
+  var oauth2Client = new auth.OAuth2(clientId, clientSecret, redirectUrl)
 
-  return new Promise(function(resolve, reject){
+  return new Promise(function(resolve, reject) {
     // Check if we have previously stored a token.
     fs.readFile(TOKEN_PATH, function(err, token) {
       if (err) {
-        //resolve(getNewToken(oauth2Client));
-        reject(Error("No token found."))
+        getNewToken(oauth2Client)
+        //resolve(oauth2Client) //TODO: Fix
       } else {
-        oauth2Client.credentials = JSON.parse(token);
-        resolve(oauth2Client);
+        oauth2Client.credentials = JSON.parse(token)
+        resolve(oauth2Client)
       }
-    });
-  });
+    })
+  })
 }
 
 /**
  * Get and store new token after prompting for user authorization.
  *
- * @param {google.auth.OAuth2} oauth2Client The OAuth2 client to get token for.
+ * @param {Object} oauth2Client The OAuth2 client to get token for.
  */
 function getNewToken(oauth2Client) {
   var authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES
-  });
-  console.log('Authorize this app by visiting this url: ', authUrl);
+  })
+  console.log('Authorize this app by visiting this url: ', authUrl)
   var rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
-  });
+  })
   rl.question('Enter the code from that page here: ', function(code) {
-    rl.close();
-    return new Promise(function(resolve, reject){
+    rl.close()
+    return new Promise(function(resolve, reject) {
       oauth2Client.getToken(code, function(err, token) {
         if (err) {
-          //console.log('Error while trying to retrieve access token', err);
-          reject(Error("Error while trying to retrieve access token"));
+          reject(Error("Error while trying to retrieve access token"))
         }
-        oauth2Client.credentials = token;
-        storeToken(token);
-        resolve(oauth2Client);
-      });
-    });
-    // oauth2Client.getToken(code, function(err, token) {
-    //   if (err) {
-    //     console.log('Error while trying to retrieve access token', err);
-    //     return;
-    //   }
-    //   oauth2Client.credentials = token;
-    //   storeToken(token);
-    //   return oauth2Client;
-    // });
-  });
+        oauth2Client.credentials = token
+        storeToken(token)
+        resolve(oauth2Client)
+      })
+    })
+  })
 }
 
 /**
@@ -109,14 +101,14 @@ function getNewToken(oauth2Client) {
  */
 function storeToken(token) {
   try {
-    fs.mkdirSync(TOKEN_DIR);
+    fs.mkdirSync(TOKEN_DIR)
   } catch (err) {
     if (err.code != 'EEXIST') {
-      throw err;
+      throw err
     }
   }
-  fs.writeFile(TOKEN_PATH, JSON.stringify(token));
-  console.log('Token stored to ' + TOKEN_PATH);
+  fs.writeFile(TOKEN_PATH, JSON.stringify(token))
+  console.log('Token stored to ' + TOKEN_PATH)
 }
 
 /**
@@ -125,8 +117,8 @@ function storeToken(token) {
  * @param {Object} auth An authorized OAuth2 client.
  */
 function getDoc(auth) {
-  var service = google.drive('v3');
-  return new Promise(function(resolve, reject){
+  var service = google.drive('v3')
+  return new Promise(function(resolve, reject) {
     service.files.list({
       auth: auth,
       pageSize: 1,
@@ -134,18 +126,18 @@ function getDoc(auth) {
       fields: 'files(id)'
     }, function(err, response) {
       if (err) {
-        reject(Error("Unable to located cover letter in Drive."));
+        reject(Error("Unable to find cover letter in Drive."))
       }
-      else{
-        var files = response.files;
+      else {
+        var files = response.files
         if (files.length == 0) {
-          reject(Error("Cover letter not in Drive."));
+          reject(Error("Cover letter not in Drive."))
         } else {
-          resolve([auth, files[0].id]);
+          resolve({auth: auth, fileID: files[0].id})
         }
       }
-    });
-  });
+    })
+  })
 }
 
 /**
@@ -153,41 +145,42 @@ function getDoc(auth) {
  * new document's ID.
  *
  * @param {Object} auth An authorized OAuth2 client.
+ * @param String fileID The file ID of the newly created cover letter.
  */
-function createDoc(args){
-  var service = google.drive('v3');
-  return new Promise(function(resolve, reject){
+function createDoc({auth, fileID}) {
+  var service = google.drive('v3')
+  return new Promise(function(resolve, reject) {
     service.files.copy({
-      auth: args[0],
-      fileId: args[1]
+      auth: auth,
+      fileId: fileID
     }, function(err, response) {
       if (err) {
-        console.log(err);
-        reject(Error("It broke in createDoc()"));
+        reject(Error("Unable to create a cover letter copy."))
       }
       else{
-        resolve([args[0], response.id]);
+        resolve({auth: auth, fileID: response.id})
       }
-    });
-  });
+    })
+  })
 }
 
 /**
  * Call an Apps Script function to replace company name and position in cover letter.
  *
- * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
+ * @param {Object} auth An authorized OAuth2 client.
+ * @param String fileID The file ID of the newly created cover letter.
  */
-function callAppsScript(args) {
-  var scriptId = process.env.GOOGLE_SCRIPT_ID;
-  var script = google.script('v1');
+function callAppsScript({auth, fileID}) {
+  var scriptId = process.env.GOOGLE_SCRIPT_ID
+  var script = google.script('v1')
 
-  return new Promise(function(resolve, reject){
+  return new Promise(function(resolve, reject) {
     script.scripts.run({
-      auth: args[0],
+      auth: auth,
       resource: {
         function: 'findAndReplace',
         parameters: [
-          documentID=args[1],
+          documentID=fileID,
           companyName="TestCompany",
           companyPosition="TestPosition"
         ],
@@ -197,8 +190,7 @@ function callAppsScript(args) {
     }, function(err, resp) {
       if (err) {
         // The API encountered a problem before the script started executing.
-        console.log('The API returned an error: ' + err);
-        reject(Error("It broke in callAppsScript()"));
+        reject(Error("The app script encountered a problem before the script started."))
       }
       if (resp.error) {
         // The API executed, but the script returned an error.
@@ -206,43 +198,48 @@ function callAppsScript(args) {
         // Extract the first (and only) set of error details. The values of this
         // object are the script's 'errorMessage' and 'errorType', and an array
         // of stack trace elements.
-        var error = resp.error.details[0];
-        console.log('Script error message: ' + error.errorMessage);
+        var error = resp.error.details[0]
+        console.log('Script error message: ' + error.errorMessage)
         
         if (error.scriptStackTraceElements) {
-          console.log('Script error stacktrace:');
+          console.log('Script error stacktrace:')
           // There may not be a stacktrace if the script didn't start executing.
           for (var i = 0; i < error.scriptStackTraceElements.length; i++) {
-            var trace = error.scriptStackTraceElements[i];
-            console.log('\t%s: %s', trace.function, trace.lineNumber);
+            var trace = error.scriptStackTraceElements[i]
+            console.log('\t%s: %s', trace.function, trace.lineNumber)
           }
         }
-        reject(Error("It broke in callAppsScript()"));
+        reject(Error("The app script returned an error."))
       } else {
-        resolve([args[0], args[1]])
+        resolve({auth: auth, fileID: fileID})
       }
-    });
-  });
+    })
+  })
 }
 
 /**
  * Download the modified cover letter to local machine.
  *
- * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
+ * @param {Object} auth An authorized OAuth2 client.
+ * @param String fileID The file ID of the newly created cover letter.
  */
-function downloadLetter(args){
-  var dest = fs.createWriteStream('coverLetter.pdf'); //TODO: Dynamic PDF name. 
-  var service = google.drive('v3');
-  service.files.export({
-    auth: args[0],
-    fileId: args[1],
-    mimeType: 'application/pdf'
-  })
-  .on('end', function() {
-    console.log('Download Successful.');
-  })
-  .on('error', function(err) {
-    console.log('Error during download', err);
-  })
-  .pipe(dest);
+function downloadLetter({auth, fileID}) {
+  var dest = fs.createWriteStream('coverLetter.pdf') //TODO: Dynamic PDF name. 
+  var service = google.drive('v3')
+
+  return new Promise(function(resolve, reject) {
+    service.files.export({
+      auth: auth,
+      fileId: fileID,
+      mimeType: 'application/pdf'
+    })
+    .on('end', function() {
+      resolve("Download Successful.")
+    })
+    .on('error', function(err) {
+      console.log('Error during download', err)
+      reject(Error("Error while downloading new cover letter."1))
+    })
+    .pipe(dest)
+  });
 }
