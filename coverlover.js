@@ -142,7 +142,7 @@ function getDoc(auth) {
     service.files.list({
       auth: auth,
       pageSize: 1,
-      q: "name='Generic Cover Letter'", //TODO: Make this dynamic.
+      q: "name='Basic Cover Letter'", //TODO: Make this dynamic.
       fields: 'files(id)'
     }, function(err, response) {
       if (err) {
