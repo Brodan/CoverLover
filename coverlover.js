@@ -25,7 +25,8 @@ getCommandLineArguments()
     console.error('onRejected function called: ', error )})
 
 /**
- * Retrieve client_secret.json file for use with OAuth client.
+ * Parse command line arguments and return an error if the arguments
+ * are missing.
  */
  function getCommandLineArguments(){
   return new Promise(function(resolve, reject){
@@ -73,8 +74,8 @@ function authorize(credentials) {
     // Check if we have previously stored a token.
     fs.readFile(TOKEN_PATH, function(err, token) {
       if (err) {
-        getNewToken(oauth2Client)
-        //resolve(oauth2Client) //TODO: Fix
+        // Token not found, generate new one.
+        resolve(getNewToken(oauth2Client))
       } else {
         oauth2Client.credentials = JSON.parse(token)
         resolve(oauth2Client)
@@ -89,21 +90,22 @@ function authorize(credentials) {
  * @param {Object} oauth2Client The OAuth2 client to get token for.
  */
 function getNewToken(oauth2Client) {
-  var authUrl = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: SCOPES
-  })
-  console.log('Authorize this app by visiting this url: ', authUrl)
-  var rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  })
-  rl.question('Enter the code from that page here: ', function(code) {
-    rl.close()
-    return new Promise(function(resolve, reject) {
+  return new Promise(function(resolve, reject) {
+    var authUrl = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: SCOPES
+    })
+    console.log('Authorize this app by visiting this url: ', authUrl)
+    var rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    })
+    rl.question('Enter the code from that page here: ', function(code) {
+      rl.close()
+    
       oauth2Client.getToken(code, function(err, token) {
         if (err) {
-          reject(Error("Error while trying to retrieve access token"))
+          reject(Error("Could not retrieve access token."))
         }
         oauth2Client.credentials = token
         storeToken(token)
@@ -132,13 +134,13 @@ function storeToken(token) {
 
 /**
  * Retrieve the document ID of the 'Generic Cover Letter' in Google Drive.
- * TODO: Make this more dynamic.
+ * TODO: Make filename search dynamic.
  *
  * @param {Object} auth An authorized OAuth2 client.
  */
 function getDoc(auth) {
-  var service = google.drive('v3')
   return new Promise(function(resolve, reject) {
+    var service = google.drive('v3')
     service.files.list({
       auth: auth,
       pageSize: 1,
@@ -151,7 +153,7 @@ function getDoc(auth) {
       else {
         var files = response.files
         if (files.length == 0) {
-          reject(Error("Cover letter not in Drive."))
+          reject(Error("Unable to find cover letter in Drive."))
         } else {
           resolve({auth: auth, fileID: files[0].id})
         }
@@ -168,8 +170,8 @@ function getDoc(auth) {
  * @param String fileID The file ID of the newly created cover letter.
  */
 function createDoc({auth, fileID}) {
-  var service = google.drive('v3')
   return new Promise(function(resolve, reject) {
+    var service = google.drive('v3')
     service.files.copy({
       auth: auth,
       fileId: fileID
@@ -191,10 +193,9 @@ function createDoc({auth, fileID}) {
  * @param String fileID The file ID of the newly created cover letter.
  */
 function callAppsScript({auth, fileID}) {
-  var scriptId = process.env.GOOGLE_SCRIPT_ID //TODO: Make this dynamic.
-  var script = google.script('v1')
-
   return new Promise(function(resolve, reject) {
+    var scriptId = process.env.GOOGLE_SCRIPT_ID //TODO: Make this dynamic.
+    var script = google.script('v1')
     script.scripts.run({
       auth: auth,
       resource: {
@@ -209,8 +210,7 @@ function callAppsScript({auth, fileID}) {
       scriptId: scriptId
     }, function(err, resp) {
       if (err) {
-        // The API encountered a problem before the script started executing.
-        reject(Error("The app script encountered a problem before the script started."))
+        reject(Error("The app script encountered a problem before running."))
       }
       if (resp.error) {
         // The API executed, but the script returned an error.
@@ -244,21 +244,20 @@ function callAppsScript({auth, fileID}) {
  * @param String fileID The file ID of the newly created cover letter.
  */
 function downloadLetter({auth, fileID}) {
-  var dest = fs.createWriteStream('CoverLetter-' + 
-    COMPANY + '-' + POSITION + '.pdf') 
-  var service = google.drive('v3')
-
   return new Promise(function(resolve, reject) {
+    var dest = fs.createWriteStream('CoverLetter-' + 
+      COMPANY + '-' + POSITION + '.pdf') 
+    var service = google.drive('v3')
     service.files.export({
       auth: auth,
       fileId: fileID,
       mimeType: 'application/pdf'
     })
     .on('end', function() {
-      resolve("Download Successful.")
+      resolve("Cover letter downloaded successfully.")
     })
     .on('error', function(err) {
-      reject(Error("Error while downloading new cover letter."))
+      reject(Error("Unable to download new cover letter."))
     })
     .pipe(dest)
   })

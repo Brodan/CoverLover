@@ -11,8 +11,9 @@ A cover letter generator built using the Google Docs/Google Drive/Google Apps Sc
 4. 
 
 # To Do:
-- [ ] Finish, clean up, document source.
+- [x] Finish, clean up, document source.
 - [x] Insert generic cover letter for demo purposes.
+- [ ] Dynamically obtain Apps Script ID.
 - [ ] Finish above instructions.
 - [ ] Parse job listing to retrieve company and position dynamically.
 - [ ] Convert into command line application?
