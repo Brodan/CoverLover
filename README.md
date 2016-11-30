@@ -1,6 +1,7 @@
 # CoverLover
 A cover letter generator built using the Google Docs/Google Drive/Google Apps Script APIs.
 
+![CoverLover Logo](https://raw.githubusercontent.com/Brodan/CoverLover/master/logo.png)
 # Instructions:
 
 1. Clone this repository: `$ git clone https://github.com/Brodan/CoverLover.git`
