@@ -10,8 +10,10 @@ var SCOPES = ['https://www.googleapis.com/auth/documents',
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/'
 var TOKEN_PATH = TOKEN_DIR + 'coverLover.json'
+var COMPANY, POSITION
 
-readSecrets()
+getCommandLineArguments()
+  .then(readSecrets)
   .then(authorize)
   .then(getDoc)
   .then(createDoc)
@@ -21,6 +23,23 @@ readSecrets()
     console.log(result)})
   .catch(error => {
     console.error('onRejected function called: ', error )})
+
+/**
+ * Retrieve client_secret.json file for use with OAuth client.
+ */
+ function getCommandLineArguments(){
+  return new Promise(function(resolve, reject){
+    var args = process.argv.slice(2);
+    // Get command line arguments for company and position.
+    COMPANY = args[0]
+    POSITION = args[1]
+    if (!COMPANY || !POSITION) {
+      reject(Error("Incorrect command line arguments submitted."))
+    } else {
+      resolve()
+    }
+  })
+ }
 
 /**
  * Retrieve client_secret.json file for use with OAuth client.
@@ -114,6 +133,7 @@ function storeToken(token) {
 /**
  * Retrieve the document ID of the 'Generic Cover Letter' in Google Drive.
  * TODO: Make this more dynamic.
+ *
  * @param {Object} auth An authorized OAuth2 client.
  */
 function getDoc(auth) {
@@ -171,7 +191,7 @@ function createDoc({auth, fileID}) {
  * @param String fileID The file ID of the newly created cover letter.
  */
 function callAppsScript({auth, fileID}) {
-  var scriptId = process.env.GOOGLE_SCRIPT_ID
+  var scriptId = process.env.GOOGLE_SCRIPT_ID //TODO: Make this dynamic.
   var script = google.script('v1')
 
   return new Promise(function(resolve, reject) {
@@ -181,8 +201,8 @@ function callAppsScript({auth, fileID}) {
         function: 'findAndReplace',
         parameters: [
           documentID=fileID,
-          companyName="TestCompany",
-          companyPosition="TestPosition"
+          companyName=COMPANY,
+          companyPosition=POSITION
         ],
         devMode: true //TODO: Set to false after deploying newest version of App Script
       },
@@ -218,13 +238,14 @@ function callAppsScript({auth, fileID}) {
 }
 
 /**
- * Download the modified cover letter to local machine.
+ * Download the modified cover letter to current directory.
  *
  * @param {Object} auth An authorized OAuth2 client.
  * @param String fileID The file ID of the newly created cover letter.
  */
 function downloadLetter({auth, fileID}) {
-  var dest = fs.createWriteStream('coverLetter.pdf') //TODO: Dynamic PDF name. 
+  var dest = fs.createWriteStream('CoverLetter-' + 
+    COMPANY + '-' + POSITION + '.pdf') 
   var service = google.drive('v3')
 
   return new Promise(function(resolve, reject) {
@@ -237,9 +258,8 @@ function downloadLetter({auth, fileID}) {
       resolve("Download Successful.")
     })
     .on('error', function(err) {
-      console.log('Error during download', err)
-      reject(Error("Error while downloading new cover letter."1))
+      reject(Error("Error while downloading new cover letter."))
     })
     .pipe(dest)
-  });
+  })
 }
