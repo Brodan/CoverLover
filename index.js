@@ -7,6 +7,7 @@ var chalk = require('chalk');
 
 program
  .arguments('<file>')
+ .option('-o, --output <filename>', 'What to save the new cover letter as')
  .option('-u, --username <username>', 'The user to authenticate as')
  .option('-p, --password <password>', 'The user\'s password')
  .option('-v, --version', 'See current version')
