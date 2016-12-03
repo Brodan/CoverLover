@@ -1,17 +1,36 @@
 #!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
 var lj = require('./src/letterjen');
 var program = require('commander');
 var pjson = require('./package.json');
-var chalk = require('chalk');
-//console.log(pjson.version);
 
 program
- .arguments('<file>')
- .option('-o, --output <filename>', 'What to save the new cover letter as')
- .option('-u, --username <username>', 'The user to authenticate as')
- .option('-p, --password <password>', 'The user\'s password')
- .option('-v, --version', 'See current version')
- .action(function(file) {
-   console.log(chalk.bold.cyan('File downloaded.'));
+  .description('A cover letter generator.')
+  .version(pjson.version)
+//  .option('-a, --auth-output <filename>', 'What to save the new cover letter as')
+//  .option('-o, --output <filename>', 'What to save the new cover letter as')
+
+program
+  .command('authenticate')
+  .description('Obtain and save OAuth2 token')
+  .option("-D", "delete currently saved auth token")
+  .option('-o, --output <directory>', 'where to save auth token')
+  .action(function(){
+    lj.authorize()
 })
-.parse(process.argv);
+
+program
+  .command('generate')
+  .arguments('<company_name> <company_position>')
+  .action((company, position) => {
+    //console.log(chalk.bold.cyan('File downloaded.'))
+    lj.generate(company, position)
+})
+
+
+
+program.parse(process.argv)
+if (!program.args.length) program.help()

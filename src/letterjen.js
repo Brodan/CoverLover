@@ -2,6 +2,7 @@ var fs = require('fs')
 var readline = require('readline')
 var google = require('googleapis')
 var googleAuth = require('google-auth-library')
+var chalk = require('chalk');
 
 // If modifying these scopes, delete your previously saved credentials
 // at ~/.credentials/coverLover.json
@@ -12,23 +13,27 @@ var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
 var TOKEN_PATH = TOKEN_DIR + 'coverLover.json'
 var COMPANY, POSITION
 
-function run(){
-  getCommandLineArguments()
-    .then(readSecrets)
+module.exports = {
+  authorize: function(){
+    readSecrets()
+    .then(authorize)
+    .catch(error => {
+      console.error('onRejected function called: ', error )}) 
+  },
+  generate: function(company, position){
+    COMPANY = company
+    POSITION = position
+    readSecrets()
     .then(authorize)
     .then(getDoc)
     .then(createDoc)
     .then(callAppsScript)
     .then(downloadLetter)
     .then(result => {
-      console.log(result)})
+      console.log(chalk.bold.cyan(result))})
     .catch(error => {
       console.error('onRejected function called: ', error )})  
-}
-
-
-function hello(){
-  console.log("Hello World")
+  }
 }
 
 /**
@@ -217,6 +222,7 @@ function callAppsScript({auth, fileID}) {
       scriptId: scriptId
     }, function(err, resp) {
       if (err) {
+        console.log(err)
         reject(Error("The app script encountered a problem before running."))
       }
       if (resp.error) {
