@@ -5,20 +5,24 @@ var googleAuth = require('google-auth-library')
 var chalk = require('chalk');
 
 // If modifying these scopes, delete your previously saved credentials
-// at ~/.credentials/coverLover.json
+// at ~/.credentials/letterjen.json
 var SCOPES = ['https://www.googleapis.com/auth/documents',
               'https://www.googleapis.com/auth/drive']
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/'
-var TOKEN_PATH = TOKEN_DIR + 'coverLover.json'
+var TOKEN_PATH = TOKEN_DIR + 'letterjen.json'
 var COMPANY, POSITION
 
 module.exports = {
   authorize: function(){
     readSecrets()
     .then(authorize)
+    .then(uploadAppScript)
+    .then(result => {
+      console.log(chalk.bold.cyan('Auth token stored to ' + TOKEN_PATH))
+    })
     .catch(error => {
-      console.error('onRejected function called: ', error )}) 
+      console.error(chalk.bold.red('An error occurred: '), error )}) 
   },
   generate: function(company, position){
     COMPANY = company
@@ -32,27 +36,9 @@ module.exports = {
     .then(result => {
       console.log(chalk.bold.cyan(result))})
     .catch(error => {
-      console.error('onRejected function called: ', error )})  
+      console.error(chalk.bold.red('An error occurred: '), error )})  
   }
 }
-
-/**
- * Parse command line arguments and return an error if the arguments
- * are missing.
- */
- function getCommandLineArguments(){
-  return new Promise(function(resolve, reject){
-    var args = process.argv.slice(2);
-    // Get command line arguments for company and position.
-    COMPANY = args[0]
-    POSITION = args[1]
-    if (!COMPANY || !POSITION) {
-      reject(Error("Incorrect command line arguments submitted."))
-    } else {
-      resolve()
-    }
-  })
- }
 
 /**
  * Retrieve client_secret.json file for use with OAuth client.
@@ -92,6 +78,29 @@ function authorize(credentials) {
         oauth2Client.credentials = JSON.parse(token)
         resolve(oauth2Client)
       }
+    })
+  })
+}
+
+function uploadAppScript(auth) {
+  return new Promise(function(resolve, reject) {
+    var drive = google.drive('v3')
+    drive.files.create({
+      auth: auth,
+      resource: {
+        name: 'letterjen',
+        mimeType: 'application/vnd.google-apps.script'
+      },
+      media: {
+        mimeType: 'text/plain',
+        body: fs.createReadStream('src/letterjen.gs') // read streams are awesome!
+      },
+    }, function(err, result){
+      if(err){
+        console.log(err)
+        reject(Error('Unable to upload app script.'))
+      }
+      resolve()
     })
   })
 }
@@ -141,7 +150,6 @@ function storeToken(token) {
     }
   }
   fs.writeFile(TOKEN_PATH, JSON.stringify(token))
-  console.log('Token stored to ' + TOKEN_PATH)
 }
 
 /**
@@ -152,8 +160,8 @@ function storeToken(token) {
  */
 function getDoc(auth) {
   return new Promise(function(resolve, reject) {
-    var service = google.drive('v3')
-    service.files.list({
+    var drive = google.drive('v3')
+    drive.files.list({
       auth: auth,
       pageSize: 1,
       q: "name='Basic Cover Letter'", //TODO: Make this dynamic.
@@ -183,8 +191,8 @@ function getDoc(auth) {
  */
 function createDoc({auth, fileID}) {
   return new Promise(function(resolve, reject) {
-    var service = google.drive('v3')
-    service.files.copy({
+    var drive = google.drive('v3')
+    drive.files.copy({
       auth: auth,
       fileId: fileID
     }, function(err, response) {
@@ -260,8 +268,8 @@ function downloadLetter({auth, fileID}) {
   return new Promise(function(resolve, reject) {
     var dest = fs.createWriteStream('CoverLetter-' + 
       COMPANY + '-' + POSITION + '.pdf') 
-    var service = google.drive('v3')
-    service.files.export({
+    var drive = google.drive('v3')
+    drive.files.export({
       auth: auth,
       fileId: fileID,
       mimeType: 'application/pdf'

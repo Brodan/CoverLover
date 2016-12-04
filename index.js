@@ -16,9 +16,10 @@ program
 program
   .command('authenticate')
   .description('Obtain and save OAuth2 token')
-  .option("-D", "delete currently saved auth token")
-  .option('-o, --output <directory>', 'where to save auth token')
-  .action(function(){
+  //.option("-D", "delete currently saved auth token", lj.deleteToken())
+  //.option('-o, --output <directory>', 'where to save auth token')
+  .action(function(result){
+    //console.log(result)
     lj.authorize()
 })
 
@@ -26,11 +27,8 @@ program
   .command('generate')
   .arguments('<company_name> <company_position>')
   .action((company, position) => {
-    //console.log(chalk.bold.cyan('File downloaded.'))
     lj.generate(company, position)
 })
-
-
 
 program.parse(process.argv)
 if (!program.args.length) program.help()
