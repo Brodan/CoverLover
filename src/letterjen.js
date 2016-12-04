@@ -82,6 +82,9 @@ function authorize(credentials) {
   })
 }
 
+/* CURRENTLY BROKEN
+ *
+ */
 function uploadAppScript(auth) {
   return new Promise(function(resolve, reject) {
     var drive = google.drive('v3')
@@ -92,15 +95,16 @@ function uploadAppScript(auth) {
         mimeType: 'application/vnd.google-apps.script'
       },
       media: {
-        mimeType: 'text/plain',
-        body: fs.createReadStream('src/letterjen.gs') // read streams are awesome!
-      },
+        mimeType: 'application/vnd.google-apps.script',
+        body: fs.createReadStream('src/letterjen.gs')
+      }
     }, function(err, result){
       if(err){
         console.log(err)
         reject(Error('Unable to upload app script.'))
       }
-      resolve()
+      console.log(result.id)
+      resolve({auth: auth, fileID: result.id})
     })
   })
 }
