@@ -82,8 +82,8 @@ function authorize(credentials) {
   })
 }
 
-/* CURRENTLY BROKEN
- *
+/** 
+ * Upload letterjen.gs to the user's Google Drive.
  */
 function uploadAppScript(auth) {
   return new Promise(function(resolve, reject) {
@@ -91,19 +91,23 @@ function uploadAppScript(auth) {
     drive.files.create({
       auth: auth,
       resource: {
-        name: 'letterjen',
-        mimeType: 'application/vnd.google-apps.script'
+        name: 'letterjen.gs',
+        mimeType: 'application/vnd.google-apps.script+json'
       },
       media: {
-        mimeType: 'application/vnd.google-apps.script',
-        body: fs.createReadStream('src/letterjen.gs')
+        mimeType: 'application/vnd.google-apps.script+json',
+        body: JSON.stringify({
+          files: [{
+            source: fs.readFileSync('src/letterjen.gs', { encoding: 'utf-8' }),
+            name: 'letterjen',
+            type: 'server_js'
+          }]
+        })
       }
     }, function(err, result){
       if(err){
-        console.log(err)
         reject(Error('Unable to upload app script.'))
       }
-      console.log(result.id)
       resolve({auth: auth, fileID: result.id})
     })
   })
