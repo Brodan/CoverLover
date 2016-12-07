@@ -10,25 +10,25 @@ var pjson = require('./package.json');
 program
   .description('A cover letter generator.')
   .version(pjson.version)
-//  .option('-a, --auth-output <filename>', 'What to save the new cover letter as')
-//  .option('-o, --output <filename>', 'What to save the new cover letter as')
 
 program
   .command('authenticate')
   .description('Obtain and save OAuth2 token')
-  //.option("-D", "delete currently saved auth token", lj.deleteToken())
   //.option('-o, --output <directory>', 'where to save auth token')
-  .action(function(result){
+  .action(function(){
     //console.log(result)
     lj.authorize()
-})
+  }).on('--help', function() {
+    console.log('  Examples:');
+  });
 
 program
   .command('generate')
   .arguments('<company_name> <company_position>')
+  //.option('-o, --output <directory>', 'where to save auth token')
   .action((company, position) => {
     lj.generate(company, position)
-})
+  })
 
 program.parse(process.argv)
 if (!program.args.length) program.help()

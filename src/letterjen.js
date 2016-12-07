@@ -4,6 +4,41 @@ var google = require('googleapis')
 var googleAuth = require('google-auth-library')
 var chalk = require('chalk');
 
+module.exports = {
+
+  authorize: function(){
+    readSecrets()
+    .then(authorize)
+    .then(result => {
+      console.log(chalk.bold.cyan('Auth token stored to ' + TOKEN_PATH))
+    })
+    .then(uploadAppScript)
+    .catch(error => {
+      console.error(chalk.bold.red('An error occurred: '), error )}) 
+  },
+  generate: function(company, position){
+    readSecrets()
+    .then(authorize)
+    .then(auth => {
+      return findFile(auth, 'Basic Cover Letter')
+    })
+    .then(createDoc)
+    .then(result => {
+      return callAppsScript(result, company, position) 
+    })
+    .then(result => {
+      return downloadLetter(result, company, position)
+    })
+    .then(result => {
+      console.log(chalk.bold.cyan(result))})
+    .catch(error => {
+      console.error(chalk.bold.red('An error occurred: '), error )})  
+  },
+  download: function(company, position){
+    //todo
+  }
+}
+
 // If modifying these scopes, delete your previously saved credentials
 // at ~/.credentials/letterjen.json
 var SCOPES = ['https://www.googleapis.com/auth/documents',
@@ -11,34 +46,6 @@ var SCOPES = ['https://www.googleapis.com/auth/documents',
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/'
 var TOKEN_PATH = TOKEN_DIR + 'letterjen.json'
-var COMPANY, POSITION
-
-module.exports = {
-  authorize: function(){
-    readSecrets()
-    .then(authorize)
-    .then(uploadAppScript)
-    .then(result => {
-      console.log(chalk.bold.cyan('Auth token stored to ' + TOKEN_PATH))
-    })
-    .catch(error => {
-      console.error(chalk.bold.red('An error occurred: '), error )}) 
-  },
-  generate: function(company, position){
-    COMPANY = company
-    POSITION = position
-    readSecrets()
-    .then(authorize)
-    .then(getDoc)
-    .then(createDoc)
-    .then(callAppsScript)
-    .then(downloadLetter)
-    .then(result => {
-      console.log(chalk.bold.cyan(result))})
-    .catch(error => {
-      console.error(chalk.bold.red('An error occurred: '), error )})  
-  }
-}
 
 /**
  * Retrieve client_secret.json file for use with OAuth client.
@@ -47,7 +54,7 @@ function readSecrets() {
   return new Promise(function(resolve, reject) {
     fs.readFile('client_secret.json', function (err, content) {
       if (err) {
-        reject(Error("Could not read client_secret.json file."))
+        reject(Error("Unable to find/read client_secret.json file."))
       }
       else {
         resolve(JSON.parse(content))
@@ -166,13 +173,13 @@ function storeToken(token) {
  *
  * @param {Object} auth An authorized OAuth2 client.
  */
-function getDoc(auth) {
+function findFile(auth, filename) {
   return new Promise(function(resolve, reject) {
     var drive = google.drive('v3')
     drive.files.list({
       auth: auth,
       pageSize: 1,
-      q: "name='Basic Cover Letter'", //TODO: Make this dynamic.
+      q: "name=\'" + filename + "\'", 
       fields: 'files(id)'
     }, function(err, response) {
       if (err) {
@@ -197,7 +204,7 @@ function getDoc(auth) {
  * @param {Object} auth An authorized OAuth2 client.
  * @param String fileID The file ID of the newly created cover letter.
  */
-function createDoc({auth, fileID}) {
+function createDoc({auth, fileID}) {  
   return new Promise(function(resolve, reject) {
     var drive = google.drive('v3')
     drive.files.copy({
@@ -220,7 +227,7 @@ function createDoc({auth, fileID}) {
  * @param {Object} auth An authorized OAuth2 client.
  * @param String fileID The file ID of the newly created cover letter.
  */
-function callAppsScript({auth, fileID}) {
+function callAppsScript({auth, fileID}, company, position) {
   return new Promise(function(resolve, reject) {
     var scriptId = process.env.GOOGLE_SCRIPT_ID //TODO: Make this dynamic.
     var script = google.script('v1')
@@ -230,8 +237,8 @@ function callAppsScript({auth, fileID}) {
         function: 'findAndReplace',
         parameters: [
           documentID=fileID,
-          companyName=COMPANY,
-          companyPosition=POSITION
+          companyName=company,
+          companyPosition=position
         ],
         devMode: true //TODO: Set to false after deploying newest version of App Script
       },
@@ -272,10 +279,10 @@ function callAppsScript({auth, fileID}) {
  * @param {Object} auth An authorized OAuth2 client.
  * @param String fileID The file ID of the newly created cover letter.
  */
-function downloadLetter({auth, fileID}) {
+function downloadLetter({auth, fileID}, company, position) {
   return new Promise(function(resolve, reject) {
     var dest = fs.createWriteStream('CoverLetter-' + 
-      COMPANY + '-' + POSITION + '.pdf') 
+      company + '-' + position + '.pdf') 
     var drive = google.drive('v3')
     drive.files.export({
       auth: auth,
