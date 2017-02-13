@@ -17,7 +17,7 @@ program
   //.option('-o, --output <directory>', 'where to save auth token')
   .action(function(){
     //console.log(result)
-    lj.authorize()
+    lj.authenticate()
   }).on('--help', function() {
     console.log('  Examples:');
   });

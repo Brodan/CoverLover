@@ -7,15 +7,25 @@ var chalk = require('chalk');
 //TODO: If generate fails remove cover letter
 
 module.exports = {
-  authorize: function(){
+  authenticate: function(){
     readSecrets()
     .then(authorize)
     .then(auth => {
-      console.log(chalk.bold.cyan('Auth token stored to ' + TOKEN_PATH))
-      return uploadAppScript(auth)
+      return findFile(auth, 'letterjen.gs')
     })
-    .catch(error => {
-      console.error(chalk.bold.red('An error occurred: '), error )})
+    .then(result => {
+      console.log(chalk.bold.cyan("Authentication successful."))
+    })
+    .catch(result => {
+      console.warn(chalk.bold.red('Warning: '), result.error.message)
+      console.log("Uploading App Script...")
+      return uploadAppScript(result.auth).
+      then(result =>{
+        console.log(chalk.bold.cyan("Authentication successful."))
+      }).catch(error => {
+        console.error(chalk.bold.red('An error occurred: '), error.message)
+      })
+    })
   },
   generate: function(company, position){
     readSecrets()
@@ -33,16 +43,18 @@ module.exports = {
     .then(result => {
       console.log(chalk.bold.cyan(result))})
     .catch(error => {
-      console.error(chalk.bold.red('An error occurred: '), error )})
+      console.error(chalk.bold.red('An error occurred: '), error )
+    })
   },
   download: function(company, position){
-    readSecrets()
-    .then(authorize)
-    .then(auth => {
-      return findFile(auth, 'CoverLover')
-    })
-    .catch(error => {
-      console.error(chalk.bold.red('An error occurred: '), error )})
+    // readSecrets()
+    // .then(authorize)
+    // .then(auth => {
+    //   return findFile(auth, 'letterjen.gs')
+    // })
+    // .catch(error => {
+    //   console.error(chalk.bold.red('An error occurred: '), error )
+    // })
   }
 }
 
@@ -80,7 +92,7 @@ function authorize(credentials) {
   var clientId = credentials.installed.client_id
   var redirectUrl = credentials.installed.redirect_uris[0]
   var auth = new googleAuth()
-  var oauth2Client = new auth.OAuth2(clientId, clientSecret, redirectUrl)
+  var oauth2Client = new auth.OAuth2(clientId,  clientSecret, redirectUrl)
 
   return new Promise(function(resolve, reject) {
     // Check if we have previously stored a token.
@@ -122,7 +134,7 @@ function uploadAppScript(auth) {
       if(err){
         reject(Error('Unable to upload app script.'))
       }
-
+      console.log(chalk.bold.cyan("App Script successfully uploaded."))
       resolve({auth: auth, fileID: result.id})
     })
   })
@@ -173,6 +185,7 @@ function storeToken(token) {
     }
   }
   fs.writeFile(TOKEN_PATH, JSON.stringify(token))
+  console.log(chalk.bold.cyan('Auth token stored to ' + TOKEN_PATH))
 }
 
 /**
@@ -188,17 +201,17 @@ function findFile(auth, filename) {
       auth: auth,
       pageSize: 1,
       q: "name=\'" + filename + "\'", 
-      fields: 'files(id)'
+      fields: 'files(id,trashed)',
     }, function(err, response) {
       if (err) {
-        reject(Error("Unable to find cover letter in Drive."))
+        reject(Error("Unable to locate file in Drive."))
       }
       else {
         var files = response.files
-        if (files.length == 0) {
-          reject(Error("Unable to find cover letter in Drive."))
+        if (files.length == 0 || files[0].trashed) {
+          reject({error: Error("Unable to locate file in Drive."), auth: auth})
         } else {
-          resolve({auth: auth, fileID: files[0].id})
+          resolve({auth: auth, fileID: files[0]})
         }
       }
     })
@@ -289,7 +302,7 @@ function callAppsScript({auth, fileID}, company, position) {
  */
 function downloadLetter({auth, fileID}, company, position) {
   return new Promise(function(resolve, reject) {
-    var dest = fs.createWriteStream('CoverLetter-' + 
+    var dest = fs.createWriteStream('coverLetter-' + 
       company + '-' + position + '.pdf') 
     var drive = google.drive('v3')
     drive.files.export({
