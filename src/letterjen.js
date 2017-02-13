@@ -4,17 +4,18 @@ var google = require('googleapis')
 var googleAuth = require('google-auth-library')
 var chalk = require('chalk');
 
-module.exports = {
+//TODO: If generate fails remove cover letter
 
+module.exports = {
   authorize: function(){
     readSecrets()
     .then(authorize)
-    .then(result => {
+    .then(auth => {
       console.log(chalk.bold.cyan('Auth token stored to ' + TOKEN_PATH))
+      return uploadAppScript(auth)
     })
-    .then(uploadAppScript)
     .catch(error => {
-      console.error(chalk.bold.red('An error occurred: '), error )}) 
+      console.error(chalk.bold.red('An error occurred: '), error )})
   },
   generate: function(company, position){
     readSecrets()
@@ -32,10 +33,16 @@ module.exports = {
     .then(result => {
       console.log(chalk.bold.cyan(result))})
     .catch(error => {
-      console.error(chalk.bold.red('An error occurred: '), error )})  
+      console.error(chalk.bold.red('An error occurred: '), error )})
   },
   download: function(company, position){
-    //todo
+    readSecrets()
+    .then(authorize)
+    .then(auth => {
+      return findFile(auth, 'CoverLover')
+    })
+    .catch(error => {
+      console.error(chalk.bold.red('An error occurred: '), error )})
   }
 }
 
@@ -115,6 +122,7 @@ function uploadAppScript(auth) {
       if(err){
         reject(Error('Unable to upload app script.'))
       }
+
       resolve({auth: auth, fileID: result.id})
     })
   })
@@ -229,7 +237,7 @@ function createDoc({auth, fileID}) {
  */
 function callAppsScript({auth, fileID}, company, position) {
   return new Promise(function(resolve, reject) {
-    var scriptId = process.env.GOOGLE_SCRIPT_ID //TODO: Make this dynamic.
+    var scriptId = process.env.GOOGLE_SCRIPT_ID //TODO: Make this dynamic. THIS WILL BREAK THINGS
     var script = google.script('v1')
     script.scripts.run({
       auth: auth,

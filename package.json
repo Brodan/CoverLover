@@ -1,7 +1,7 @@
 {
   "name": "letterjen",
   "version": "0.0.1",
-  "description": "A cover letter generator synched powered by Google Drive.",
+  "description": "A cover letter generator powered by Google Drive.",
   "main": "index.js",
   "dependencies": {
     "chalk": "^1.1.3",
